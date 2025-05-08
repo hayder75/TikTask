@@ -2,11 +2,13 @@ const mockUsers = [
     {
       open_id: 'user1_tiktok',
       username: 'marketer1',
+      passwrod: 'password2',
       follower_count: 10000,
       profile_deep_link: 'https://tiktok.com/@marketer1',
     },
     {
       open_id: 'user2_tiktok',
+      passwrod: 'password2',
       username: 'marketer2',
       follower_count: 50000,
       profile_deep_link: 'https://tiktok.com/@marketer2',

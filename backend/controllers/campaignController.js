@@ -1,5 +1,8 @@
+const mongoose = require('mongoose');
 const Campaign = require('../models/Campaign');
+const Category = require('../models/Category'); // Add this line
 const { validationResult } = require('express-validator');
+
 
 const createCampaign = async (req, res) => {
   const errors = validationResult(req);
@@ -10,6 +13,9 @@ const createCampaign = async (req, res) => {
   const { title, description, category, minFollowerCount, allowedMarketers, budget } = req.body;
 
   try {
+    if (!mongoose.Types.ObjectId.isValid(category)) {
+        return res.status(400).json({ message: 'Invalid category ID' });
+      }
     const campaign = new Campaign({
       title,
       description,
@@ -23,6 +29,7 @@ const createCampaign = async (req, res) => {
     await campaign.save();
     res.status(201).json(campaign);
   } catch (error) {
+    console.error('Error creating campaign:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -31,14 +38,29 @@ const getCampaigns = async (req, res) => {
   const { categoryId, status } = req.query;
 
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     const query = {};
-    if (categoryId) query.category = categoryId;
+    if (categoryId) {
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return res.status(400).json({ message: 'Invalid category ID' });
+      }
+      query.category = categoryId;
+    }
     if (status) query.status = status;
     if (req.user.role === 'seller') query.createdBy = req.user._id;
 
-    const campaigns = await Campaign.find(query).populate('category', 'name');
+    console.log('Query:', query); // Debugging log
+
+    const campaigns = await Campaign.find(query)
+    .populate('category', 'name')
+    .populate('createdBy', 'name email'); 
+    
     res.json(campaigns);
   } catch (error) {
+    console.error('Error fetching campaigns:', error); // Log the error
     res.status(500).json({ message: 'Server error' });
   }
 };

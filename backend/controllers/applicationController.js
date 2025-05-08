@@ -9,15 +9,27 @@ const getAvailableCampaigns = async (req, res) => {
 
   try {
     const query = { status: 'active' };
-    if (categoryId) query.category = categoryId;
-    if (minFollowers) query.minFollowerCount = { $lte: minFollowers };
+    if (categoryId) {
+      console.log('Category ID:', categoryId);
+      query.category = categoryId;
+    }
+    if (minFollowers) {
+      console.log('Min Followers:', minFollowers);
+      query.minFollowerCount = { $lte: minFollowers };
+    }
+
+    console.log('Query:', query);
 
     const campaigns = await Campaign.find(query)
       .populate('category', 'name')
-      .where('minFollowerCount').lte(req.user.followerCount);
+      .where('minFollowerCount')
+      .lte(req.user.followerCount);
+
+    console.log('Campaigns:', campaigns);
 
     res.json(campaigns);
   } catch (error) {
+    console.error('Error fetching available campaigns:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

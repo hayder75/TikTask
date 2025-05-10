@@ -3,6 +3,8 @@ const {
   getAvailableCampaigns,
   applyForCampaign,
   getMyApplications,
+  getCampaignApplications,
+  getAcceptedVideoStats,
   reviewApplication,
   withdrawApplication,
 } = require('../controllers/applicationController');
@@ -24,6 +26,10 @@ router.post(
 );
 
 router.get('/', protect, restrictTo('marketer'), getMyApplications);
+
+router.get('/campaign/:campaignId', protect, restrictTo('seller'), getCampaignApplications);
+
+router.get('/campaign/:campaignId/accepted-stats', protect, restrictTo('seller'), getAcceptedVideoStats);
 
 router.patch(
   '/:applicationId/review',

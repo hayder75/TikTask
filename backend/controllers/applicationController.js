@@ -100,6 +100,53 @@ const getMyApplications = async (req, res) => {
   }
 };
 
+const getCampaignApplications = async (req, res) => {
+  const { campaignId } = req.params;
+
+  try {
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+    if (campaign.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const applications = await CampaignApplication.find({ campaignId })
+      .populate('marketerId', 'name tiktokUsername followerCount tiktokProfile')
+      .select('bid status createdAt');
+
+    res.json(applications);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getAcceptedVideoStats = async (req, res) => {
+  const { campaignId } = req.params;
+
+  try {
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+    if (campaign.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const applications = await CampaignApplication.find({
+      campaignId,
+      status: 'accepted',
+    })
+      .populate('marketerId', 'name tiktokUsername')
+      .select('bid statsSnapshot');
+
+    res.json(applications);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const reviewApplication = async (req, res) => {
   const { applicationId } = req.params;
   const { status } = req.body;
@@ -130,7 +177,6 @@ const reviewApplication = async (req, res) => {
     application.status = status;
     await application.save();
 
-    // Check if campaign should close
     if (status === 'accepted') {
       const acceptedCount = await CampaignApplication.countDocuments({
         campaignId: application.campaignId,
@@ -175,6 +221,8 @@ module.exports = {
   getAvailableCampaigns,
   applyForCampaign,
   getMyApplications,
+  getCampaignApplications,
+  getAcceptedVideoStats,
   reviewApplication,
   withdrawApplication,
 };

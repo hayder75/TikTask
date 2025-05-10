@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCampaign, getCampaigns, updateCampaign } = require('../controllers/campaignController');
+const { createCampaign, getCampaigns, updateCampaign, reopenCampaign } = require('../controllers/campaignController');
 const { protect, restrictTo } = require('../utils/authMiddleware');
 const { check } = require('express-validator');
 
@@ -15,7 +15,9 @@ router.post(
     check('category', 'Category is required').not().isEmpty(),
     check('minFollowerCount', 'Minimum follower count is required').isInt({ min: 0 }),
     check('allowedMarketers', 'Allowed marketers is required').isInt({ min: 1 }),
-    check('budget', 'Budget is required').isFloat({ min: 0 }),
+    check('baseBid.proposedLikes', 'Proposed likes is required').isInt({ min: 0 }),
+    check('baseBid.proposedViews', 'Proposed views is required').isInt({ min: 0 }),
+    check('baseBid.proposedPrice', 'Proposed price is required').isFloat({ min: 0 }),
   ],
   createCampaign
 );
@@ -23,5 +25,7 @@ router.post(
 router.get('/', protect, getCampaigns);
 
 router.put('/:campaignId', protect, restrictTo('seller'), updateCampaign);
+
+router.patch('/:campaignId/reopen', protect, restrictTo('seller'), reopenCampaign);
 
 module.exports = router;

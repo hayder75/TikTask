@@ -3,10 +3,8 @@ const {
   getAvailableCampaigns,
   applyForCampaign,
   getMyApplications,
-  attachTikTokLink,
-  submitApplication,
-  withdrawApplication,
   reviewApplication,
+  withdrawApplication,
 } = require('../controllers/applicationController');
 const { protect, restrictTo } = require('../utils/authMiddleware');
 const { check } = require('express-validator');
@@ -20,26 +18,12 @@ router.post(
   protect,
   restrictTo('marketer'),
   [
-    check('proposedLikes', 'Proposed likes is required').isInt({ min: 0 }),
-    check('proposedViews', 'Proposed views is required').isInt({ min: 0 }),
-    check('proposedPrice', 'Proposed price is required').isFloat({ min: 0 }),
+    check('tiktokVideoLink', 'TikTok video link is required').not().isEmpty(),
   ],
   applyForCampaign
 );
 
 router.get('/', protect, restrictTo('marketer'), getMyApplications);
-
-router.patch(
-  '/:applicationId/attach-tiktok',
-  protect,
-  restrictTo('marketer'),
-  [check('tiktokVideoLink', 'TikTok video link is required').not().isEmpty()],
-  attachTikTokLink
-);
-
-router.patch('/:applicationId/submit', protect, restrictTo('marketer'), submitApplication);
-
-router.patch('/:applicationId/withdraw', protect, restrictTo('marketer'), withdrawApplication);
 
 router.patch(
   '/:applicationId/review',
@@ -48,5 +32,7 @@ router.patch(
   [check('status', 'Status must be accepted or rejected').isIn(['accepted', 'rejected'])],
   reviewApplication
 );
+
+router.patch('/:applicationId/withdraw', protect, restrictTo('marketer'), withdrawApplication);
 
 module.exports = router;

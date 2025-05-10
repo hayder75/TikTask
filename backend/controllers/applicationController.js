@@ -9,27 +9,15 @@ const getAvailableCampaigns = async (req, res) => {
 
   try {
     const query = { status: 'active' };
-    if (categoryId) {
-      console.log('Category ID:', categoryId);
-      query.category = categoryId;
-    }
-    if (minFollowers) {
-      console.log('Min Followers:', minFollowers);
-      query.minFollowerCount = { $lte: minFollowers };
-    }
-
-    console.log('Query:', query);
+    if (categoryId) query.category = categoryId;
+    if (minFollowers) query.minFollowerCount = { $lte: minFollowers };
 
     const campaigns = await Campaign.find(query)
       .populate('category', 'name')
-      .where('minFollowerCount')
-      .lte(req.user.followerCount);
-
-    console.log('Campaigns:', campaigns);
+      .where('minFollowerCount').lte(req.user.followerCount);
 
     res.json(campaigns);
   } catch (error) {
-    console.error('Error fetching available campaigns:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -41,7 +29,7 @@ const applyForCampaign = async (req, res) => {
   }
 
   const { campaignId } = req.params;
-  const { proposedLikes, proposedViews, proposedPrice } = req.body;
+  const { tiktokVideoLink } = req.body;
 
   try {
     const campaign = await Campaign.findById(campaignId);
@@ -51,6 +39,9 @@ const applyForCampaign = async (req, res) => {
     if (req.user.followerCount < campaign.minFollowerCount) {
       return res.status(400).json({ message: 'Insufficient followers' });
     }
+    if (campaign.status !== 'active') {
+      return res.status(400).json({ message: 'Campaign is not active' });
+    }
 
     const existingApplication = await CampaignApplication.findOne({
       campaignId,
@@ -58,59 +49,6 @@ const applyForCampaign = async (req, res) => {
     });
     if (existingApplication) {
       return res.status(400).json({ message: 'Already applied' });
-    }
-
-    const applicationCount = await CampaignApplication.countDocuments({
-      campaignId,
-      status: 'accepted',
-    });
-    if (applicationCount >= campaign.allowedMarketers) {
-      return res.status(400).json({ message: 'Campaign slots full' });
-    }
-
-    const application = new CampaignApplication({
-      campaignId,
-      marketerId: req.user._id,
-      bid: { proposedLikes, proposedViews, proposedPrice },
-    });
-
-    await application.save();
-    res.status(201).json(application);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-const getMyApplications = async (req, res) => {
-  try {
-    const applications = await CampaignApplication.find({
-      marketerId: req.user._id,
-    }).populate('campaignId', 'title description');
-    res.json(applications);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-const attachTikTokLink = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const { applicationId } = req.params;
-  const { tiktokVideoLink } = req.body;
-
-  try {
-    const application = await CampaignApplication.findById(applicationId);
-    if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
-    }
-    if (application.marketerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    if (application.status !== 'accepted') {
-      return res.status(400).json({ message: 'Application must be accepted to attach TikTok link' });
     }
 
     const user = await User.findById(req.user._id);
@@ -131,60 +69,32 @@ const attachTikTokLink = async (req, res) => {
       return res.status(400).json({ message: 'Video does not belong to your TikTok account' });
     }
 
-    application.tiktokVideoLink = tiktokVideoLink;
-    application.statsSnapshot = {
-      likes: videoInfo.like_count,
-      views: videoInfo.view_count,
-      lastUpdated: new Date(),
-    };
+    const application = new CampaignApplication({
+      campaignId,
+      marketerId: req.user._id,
+      bid: {
+        tiktokVideoLink,
+        statsSnapshot: {
+          likes: videoInfo.like_count,
+          views: videoInfo.view_count,
+          lastUpdated: new Date(),
+        },
+      },
+    });
+
     await application.save();
-    res.json(application);
+    res.status(201).json(application);
   } catch (error) {
     res.status(500).json({ message: 'Server error: ' + error.message });
   }
 };
 
-const submitApplication = async (req, res) => {
-  const { applicationId } = req.params;
-
+const getMyApplications = async (req, res) => {
   try {
-    const application = await CampaignApplication.findById(applicationId);
-    if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
-    }
-    if (application.marketerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    if (!application.tiktokVideoLink) {
-      return res.status(400).json({ message: 'TikTok link required' });
-    }
-
-    application.status = 'completed';
-    await application.save();
-    res.json({ message: 'Application submitted' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-const withdrawApplication = async (req, res) => {
-  const { applicationId } = req.params;
-
-  try {
-    const application = await CampaignApplication.findById(applicationId);
-    if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
-    }
-    if (application.marketerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    if (application.status !== 'pending') {
-      return res.status(400).json({ message: 'Cannot withdraw non-pending application' });
-    }
-
-    application.status = 'withdrawn';
-    await application.save();
-    res.json({ message: 'Application withdrawn' });
+    const applications = await CampaignApplication.find({
+      marketerId: req.user._id,
+    }).populate('campaignId', 'title description');
+    res.json(applications);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -219,7 +129,43 @@ const reviewApplication = async (req, res) => {
 
     application.status = status;
     await application.save();
+
+    // Check if campaign should close
+    if (status === 'accepted') {
+      const acceptedCount = await CampaignApplication.countDocuments({
+        campaignId: application.campaignId,
+        status: 'accepted',
+      });
+      if (acceptedCount >= application.campaignId.allowedMarketers) {
+        application.campaignId.status = 'completed';
+        await application.campaignId.save();
+      }
+    }
+
     res.json(application);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const withdrawApplication = async (req, res) => {
+  const { applicationId } = req.params;
+
+  try {
+    const application = await CampaignApplication.findById(applicationId);
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    if (application.marketerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (application.status !== 'pending') {
+      return res.status(400).json({ message: 'Cannot withdraw non-pending application' });
+    }
+
+    application.status = 'withdrawn';
+    await application.save();
+    res.json({ message: 'Application withdrawn' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -229,8 +175,6 @@ module.exports = {
   getAvailableCampaigns,
   applyForCampaign,
   getMyApplications,
-  attachTikTokLink,
-  submitApplication,
-  withdrawApplication,
   reviewApplication,
+  withdrawApplication,
 };

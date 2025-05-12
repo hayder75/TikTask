@@ -4,6 +4,8 @@ const {
   applyForCampaign,
   getMyApplications,
   getCampaignApplications,
+  shortlistApplicants,
+  submitVideo,
   getAcceptedVideoStats,
   reviewApplication,
   withdrawApplication,
@@ -19,15 +21,28 @@ router.post(
   '/:campaignId/apply',
   protect,
   restrictTo('marketer'),
-  [
-    check('tiktokVideoLink', 'TikTok video link is required').not().isEmpty(),
-  ],
   applyForCampaign
 );
 
 router.get('/', protect, restrictTo('marketer'), getMyApplications);
 
 router.get('/campaign/:campaignId', protect, restrictTo('seller'), getCampaignApplications);
+
+router.post(
+  '/:campaignId/shortlist',
+  protect,
+  restrictTo('seller'),
+  [check('applicationIds').isArray()],
+  shortlistApplicants
+);
+
+router.post(
+  '/:applicationId/submit-video',
+  protect,
+  restrictTo('marketer'),
+  [check('tiktokVideoLink', 'TikTok video link is required').not().isEmpty()],
+  submitVideo
+);
 
 router.get('/campaign/:campaignId/accepted-stats', protect, restrictTo('seller'), getAcceptedVideoStats);
 

@@ -1,5 +1,6 @@
 const express = require('express');
-const { register, login, mockTikTokSignup } = require('../controllers/authController');
+const { register, login } = require('../controllers/authController');
+const { protect, restrictTo } = require('../utils/authMiddleware');
 const { check } = require('express-validator');
 
 const router = express.Router();
@@ -9,8 +10,8 @@ router.post(
   [
     check('name', 'Name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
-    check('role', 'Role must be seller, marketer, or admin').isIn(['seller', 'marketer', 'admin']),
+    check('password', 'Password must be 6+ characters').isLength({ min: 6 }),
+    check('role', 'Role must be seller or marketer').isIn(['seller', 'marketer']),
   ],
   register
 );
@@ -19,17 +20,9 @@ router.post(
   '/login',
   [
     check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Password is required').exists(),
+    check('password', 'Password is required').not().isEmpty(),
   ],
   login
-);
-
-router.post(
-  '/tiktok-signup',
-  [
-    check('email', 'Please include a valid email').isEmail(),
-  ],
-  mockTikTokSignup
 );
 
 module.exports = router;

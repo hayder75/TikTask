@@ -1,36 +1,24 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
-// Middleware to protect routes and verify JWT
-const protect = async (req, res, next) => {
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      req.user = await User.findById(decoded.id).select('-password');
-
-      if (!req.user) {
-        return res.status(401).json({ message: 'Not authorized, user not found' });
-      }
-
-      next();
-    } catch (error) {
-      console.error('Token error:', error);
-      return res.status(401).json({ message: 'Not authorized, token failed' });
-    }
-  } else {
+const protect = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) {
     return res.status(401).json({ message: 'Not authorized, no token' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { _id: decoded.id, role: decoded.role };
+    next();
+  } catch (error) {
+    res.status(401).json({ message: 'Token is not valid' });
   }
 };
 
-// Middleware to restrict access based on roles
 const restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'You do not have permission to perform this action' });
+      return res.status(403).json({ message: 'Not authorized, insufficient role' });
     }
     next();
   };

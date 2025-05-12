@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCampaign, getCampaigns, updateCampaign, reopenCampaign } = require('../controllers/campaignController');
+const { createCampaign, getCampaigns, getCampaignById, updateCampaign, reopenCampaign } = require('../controllers/campaignController');
 const { protect, restrictTo } = require('../utils/authMiddleware');
 const { check } = require('express-validator');
 
@@ -23,6 +23,8 @@ router.post(
 );
 
 router.get('/', protect, getCampaigns);
+
+router.get('/:campaignId', protect, restrictTo('seller'), getCampaignById);
 
 router.put('/:campaignId', protect, restrictTo('seller'), updateCampaign);
 

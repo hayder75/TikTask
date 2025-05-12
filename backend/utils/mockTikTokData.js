@@ -1,53 +1,69 @@
 const mockUsers = [
-    {
-      open_id: 'user1_tiktok',
-      username: 'marketer1',
-      passwrod: 'password2',
-      follower_count: 10000,
-      profile_deep_link: 'https://tiktok.com/@marketer1',
-    },
-    {
-      open_id: 'user2_tiktok',
-      passwrod: 'password2',
-      username: 'marketer2',
-      follower_count: 50000,
-      profile_deep_link: 'https://tiktok.com/@marketer2',
-    },
-  ];
-  
-  const mockVideos = [
-    {
-      id: '123456789',
-      username: 'marketer1',
-      like_count: 500,
-      view_count: 10000,
-    },
-    {
-      id: '987654321',
-      username: 'marketer2',
-      like_count: 2000,
-      view_count: 50000,
-    },
-    {
-      id: '111222333',
-      username: 'other_user',
-      like_count: 100,
-      view_count: 2000,
-    },
-  ];
-  
-  const getMockUserInfo = (email) => {
-    // Simulate fetching user info based on a mock TikTok signup
-    const userIndex = Math.floor(Math.random() * mockUsers.length);
-    return mockUsers[userIndex];
+  {
+    username: 'marketer1',
+    profile_url: 'https://tiktok.com/@marketer1',
+    follower_count: 10000,
+  },
+  {
+    username: 'marketer2',
+    profile_url: 'https://tiktok.com/@marketer2',
+    follower_count: 20000,
+  },
+  {
+    username: 'marketer3',
+    profile_url: 'https://tiktok.com/@marketer3',
+    follower_count: 15000,
+  },
+];
+
+const mockVideos = [
+  {
+    video_id: '123456789',
+    username: 'marketer1',
+    like_count: 500,
+    view_count: 10000,
+  },
+  {
+    video_id: '987654321',
+    username: 'marketer2',
+    like_count: 1000,
+    view_count: 20000,
+  },
+  {
+    video_id: '456789123',
+    username: 'marketer3',
+    like_count: 750,
+    view_count: 15000,
+  },
+];
+
+const mockTikTokSignup = (username) => {
+  const user = mockUsers.find(u => u.username === username);
+  if (!user) {
+    return { success: false, message: 'User not found in mock data' };
+  }
+  return {
+    success: true,
+    username: user.username,
+    profile_url: user.profile_url,
+    follower_count: user.follower_count,
   };
-  
-  const getMockVideoInfo = (videoId) => {
-    const video = mockVideos.find((v) => v.id === videoId);
-    if (!video) {
-      throw new Error('Video not found');
-    }
-    return video;
+};
+
+const getMockVideoInfo = (videoId) => {
+  return mockVideos.find(v => v.video_id === videoId) || {};
+};
+
+const assignMockTikTokData = (username) => {
+  const user = mockUsers.find(u => u.username === username);
+  if (!user) {
+    return null;
+  }
+  return {
+    tiktokUsername: user.username,
+    tiktokProfile: user.profile_url,
+    followerCount: user.follower_count,
   };
-  
-  module.exports = { getMockUserInfo, getMockVideoInfo };
+};
+
+module.exports = { mockTikTokSignup, getMockVideoInfo, assignMockTikTokData };

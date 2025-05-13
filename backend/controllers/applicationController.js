@@ -32,7 +32,7 @@ const getAvailableCampaigns = async (req, res) => {
   }
 };
 
-// Rest of the file remains unchanged
+
 const applyForCampaign = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

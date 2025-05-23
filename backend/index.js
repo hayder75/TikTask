@@ -4,17 +4,17 @@ const dotenv = require("dotenv");
 const authRoutes = require("./routes/auth");
 const campaignRoutes = require("./routes/campaigns");
 const applicationRoutes = require("./routes/applications");
-const categoryRoutes = require("./routes/categories"); // New route
+const categoryRoutes = require("./routes/categories");
 const {
   termsOfService,
   privacyPolicy,
 } = require("./controllers/staticController");
 
-// Import models to register them with Mongoose
+// Import models to register them
 require("./models/User");
 require("./models/Campaign");
 require("./models/CampaignApplication");
-require("./models/Category"); // Ensure Category model is registered
+require("./models/Category");
 
 dotenv.config();
 
@@ -33,9 +33,8 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/applications", applicationRoutes);
-app.use("/api/categories", categoryRoutes); // Add new category route
+app.use("/api/categories", categoryRoutes);
 
-// Static pages for Terms of Service and Privacy Policy
 app.get("/terms", termsOfService);
 app.get("/privacy", privacyPolicy);
 

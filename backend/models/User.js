@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['seller', 'marketer', 'admin'], default: 'marketer' },
+  role: { type: String, enum: ['seller', 'marketer', 'admin'], required: true },
   tiktokUsername: { type: String },
   tiktokProfile: { type: String },
   followerCount: { type: Number, default: 0 },

@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const authRoutes = require("./routes/auth");
+const paymentRoutes = require('./routes/payments');
 const campaignRoutes = require("./routes/campaigns");
 const applicationRoutes = require("./routes/applications");
 const categoryRoutes = require("./routes/categories");
@@ -34,7 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/categories", categoryRoutes);
-
+app.use('/api/payments', paymentRoutes);
 app.get("/terms", termsOfService);
 app.get("/privacy", privacyPolicy);
 

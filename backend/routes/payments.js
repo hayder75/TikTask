@@ -1,36 +1,35 @@
 const express = require('express');
 const router = express.Router();
-const { initiatePayment, verifyPayment } = require('../utils/chapa');
-const Campaign = require('../models/Campaign');
+const { initiatePayment, verifyTransaction } = require('../utils/chapa');
 const User = require('../models/User');
+const { protect, restrictTo } = require('../utils/authMiddleware');// your JWT auth middleware
 
-// Initiate payment route
-router.post('/initiate', async (req, res) => {
-  const { campaignId, amount } = req.body;
-  const user = req.user; // Assuming authentication middleware sets req.user
+// Initiate deposit
+router.post('/deposit', protect, restrictTo('seller'), async (req, res) => {
+  const { amount } = req.body;
+  const user = req.user;
+  const fullName = user.name || '';
+  const [firstName, lastName = ''] = fullName.split(' ');
+  if (user.role !== 'seller') {
+    return res.status(403).json({ message: 'Only sellers can deposit money' });
+  }
+
+  const tx_ref = `deposit-${user._id}-${Date.now()}`;
+  const return_url = `${process.env.FRONTEND_URL}/payment-success?tx_ref=${tx_ref}`;
+  const callback_url = `http://localhost:3000/api/payments/verify/${tx_ref}`;
 
   try {
-    const campaign = await Campaign.findById(campaignId);
-    if (!campaign) {
-      return res.status(404).json({ message: 'Campaign not found' });
-    }
-
-    const tx_ref = `campaign-${campaignId}-${Date.now()}`;
-    const return_url = `https://yourdomain.com/payment-success?tx_ref=${tx_ref}`;
-    const callback_url = `https://yourapi.com/api/payments/verify/${tx_ref}`;
-
     const paymentResponse = await initiatePayment({
       amount,
       tx_ref,
       email: user.email,
-      first_name: user.name.split(' ')[0],
-      last_name: user.name.split(' ')[1] || '',
+      first_name: firstName,
+      last_name: lastName,
       return_url,
       callback_url,
     });
 
     if (paymentResponse.status === 'success') {
-      // Optionally, save tx_ref and related info to your database for tracking
       res.json({ checkout_url: paymentResponse.data.checkout_url });
     } else {
       res.status(400).json({ message: 'Failed to initiate payment' });
@@ -40,24 +39,30 @@ router.post('/initiate', async (req, res) => {
   }
 });
 
-// Verify payment route
+// Verify deposit
 router.get('/verify/:tx_ref', async (req, res) => {
   const { tx_ref } = req.params;
 
   try {
-    const verificationResponse = await verifyPayment(tx_ref);
+    const result = await verifyTransaction(tx_ref);
 
-    if (verificationResponse.status === 'success' && verificationResponse.data.status === 'success') {
-      // Update campaign or user balance as needed
-      // For example:
-      // await Campaign.findByIdAndUpdate(campaignId, { $inc: { balance: amount } });
+    if (result.status === 'success' && result.data.status === 'success') {
+      const userId = tx_ref.split('-')[1];
+      const amount = parseFloat(result.data.amount);
 
-      res.json({ message: 'Payment verified successfully' });
+      const user = await User.findById(userId);
+      if (user) {
+        user.balance += amount;
+        await user.save();
+        return res.json({ message: 'Deposit successful and balance updated', balance: user.balance });
+      } else {
+        return res.status(404).json({ message: 'User not found' });
+      }
     } else {
-      res.status(400).json({ message: 'Payment verification failed' });
+      return res.status(400).json({ message: 'Payment not successful' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    return res.status(500).json({ message: 'Error verifying transaction', error: error.message });
   }
 });
 

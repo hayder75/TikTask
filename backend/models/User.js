@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema({
   connectionCoins: { type: Number, default: 10 },
   verified: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
+  balance: { type: Number, default: 0 },
+
 });
 
 module.exports = mongoose.model('User', userSchema);

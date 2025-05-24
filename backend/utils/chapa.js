@@ -1,55 +1,51 @@
 const axios = require('axios');
+require('dotenv').config();
 
-const CHAPA_BASE_URL = 'https://api.chapa.co/v1';
-const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY; // Ensure this is set in your .env file
+const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY;
 
-// Initiate a payment
 async function initiatePayment({ amount, tx_ref, email, first_name, last_name, return_url, callback_url }) {
-  const payload = {
-    amount,
-    currency: 'ETB',
-    email,
-    first_name,
-    last_name,
-    tx_ref,
-    return_url,
-    callback_url,
-    customization: {
-      title: 'Campaign Deposit',
-      description: 'Deposit for campaign funding',
-    },
-  };
-
   try {
-    const response = await axios.post(`${CHAPA_BASE_URL}/transaction/initialize`, payload, {
-      headers: {
-        Authorization: `Bearer ${CHAPA_SECRET_KEY}`,
-        'Content-Type': 'application/json',
+    const response = await axios.post(
+      'https://api.chapa.co/v1/transaction/initialize',
+      {
+        amount,
+        currency: 'ETB',
+        email,
+        first_name,
+        last_name,
+        tx_ref,
+        return_url,
+        callback_url,
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${CHAPA_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
     return response.data;
   } catch (error) {
-    console.error('Chapa initiatePayment error:', error.response?.data || error.message);
+    console.error('Chapa init error:', error.response?.data || error.message);
     throw error;
   }
 }
 
-// Verify a payment
-async function verifyPayment(tx_ref) {
+async function verifyTransaction(tx_ref) {
   try {
-    const response = await axios.get(`${CHAPA_BASE_URL}/transaction/verify/${tx_ref}`, {
+    const response = await axios.get(`https://api.chapa.co/v1/transaction/verify/${tx_ref}`, {
       headers: {
         Authorization: `Bearer ${CHAPA_SECRET_KEY}`,
       },
     });
     return response.data;
   } catch (error) {
-    console.error('Chapa verifyPayment error:', error.response?.data || error.message);
+    console.error('Chapa verify error:', error.response?.data || error.message);
     throw error;
   }
 }
 
 module.exports = {
   initiatePayment,
-  verifyPayment,
+  verifyTransaction,
 };

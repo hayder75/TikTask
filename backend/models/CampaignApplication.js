@@ -1,23 +1,36 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const campaignApplicationSchema = new mongoose.Schema({
-  campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true },
-  marketerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  campaignId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Campaign",
+    required: true,
+  },
+  marketerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'aborted'],
-    default: 'pending',
+    enum: ["pending", "accepted", "aborted"],
+    default: "pending",
   },
   submission: {
-    tiktokVideoLink: { type: String },
+    tiktokVideoLink: String,
     statsSnapshot: {
-      likes: { type: Number, default: 0 },
-      views: { type: Number, default: 0 },
-      comments: { type: Number, default: 0 },
-      lastUpdated: { type: Date },
+      likes: Number,
+      views: Number,
+      comments: Number,
+      lastUpdated: Date,
+      isActive: { type: Boolean, default: true },
     },
   },
+  pendingPayout: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('CampaignApplication', campaignApplicationSchema);
+module.exports = mongoose.model(
+  "CampaignApplication",
+  campaignApplicationSchema
+);

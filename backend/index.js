@@ -6,6 +6,7 @@ const paymentRoutes = require('./routes/payments');
 const campaignRoutes = require("./routes/campaigns");
 const applicationRoutes = require("./routes/applications");
 const categoryRoutes = require("./routes/categories");
+const userRoutes = require("./routes/users");
 const {
   termsOfService,
   privacyPolicy,
@@ -38,6 +39,6 @@ app.use("/api/categories", categoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.get("/terms", termsOfService);
 app.get("/privacy", privacyPolicy);
-
+app.use('/api/users', userRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

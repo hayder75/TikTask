@@ -1,7 +1,7 @@
 const cron = require('node-cron');
-const { processDailyPayouts } = require('./paymentController');
+const { processDailyPayouts } = require('./controllers/paymentController');
 
-cron.schedule('0 0 * * *', async () => {
+cron.schedule('* * * * *', async () => { // Runs every minute
   await processDailyPayouts();
 });
 

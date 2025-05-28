@@ -1,6 +1,7 @@
 const Campaign = require('../models/Campaign');
 const CampaignApplication = require('../models/CampaignApplication');
 const User = require('../models/User');
+const axios = require('axios');
 
 const calculateBudget = async (req, res) => {
   const { budget, allowedMarketers } = req.body;
@@ -59,6 +60,7 @@ const processDailyPayouts = async () => {
 
       if (totalDailyValue === 0) continue;
 
+      let totalPayout = 0;
       for (const app of applications) {
         if (!app.submission?.statsSnapshot?.isActive) continue;
 
@@ -72,23 +74,37 @@ const processDailyPayouts = async () => {
         const proportion = ((stats.views * rateView) + (stats.likes * rateLike)) / totalDailyValue;
         const payout = dailyPayout + (proportion * (campaign.budget / campaign.allowedMarketers - dailyPayout));
 
-        app.pendingPayout = (app.pendingPayout || 0) + payout;
-        await app.save();
+        // Apply payout to marketer balance via userController
+        await axios.post(
+          'http://localhost:3000/api/users/apply-payouts',
+          {
+            marketerId: app.marketerId._id,
+            amount: payout,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.ADMIN_JWT_TOKEN}`, // Use an admin token or secure this call
+            },
+          }
+        );
 
-        app.marketerId.balance += payout;
-        campaign.totalPayout += payout;
-        await app.marketerId.save();
+        totalPayout += payout;
 
         console.log(`Processed payout for marketer ${app.marketerId._id} on campaign ${campaign._id}: ${payout} Birr`);
-
-        if (campaign.totalPayout >= 0.9 * campaign.budget) {
-          console.log(`Warning: Campaign ${campaign.title} budget (90% of ${campaign.budget} Birr) is nearly exhausted.`);
-        }
-        if (campaign.totalPayout >= campaign.budget) {
-          campaign.status = 'completed';
-        }
       }
+
+      // Update campaign budget and payout totals
+      campaign.remainingBudget -= totalPayout;
+      campaign.totalPayout += totalPayout;
       await campaign.save();
+
+      if (campaign.totalPayout >= 0.9 * campaign.budget) {
+        console.log(`Warning: Campaign ${campaign.title} budget (90% of ${campaign.budget} Birr) is nearly exhausted.`);
+      }
+      if (campaign.totalPayout >= campaign.budget) {
+        campaign.status = 'completed';
+        await campaign.save();
+      }
     }
   } catch (error) {
     console.error('Error in payout cron job:', error);

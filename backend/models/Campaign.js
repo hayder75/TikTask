@@ -15,6 +15,13 @@ const campaignSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'completed', 'hidden'], default: 'active' },
   expiresAt: { type: Date, required: true },
   budget: { type: Number, required: true },
+  remainingBudget: {
+    type: Number,
+    required: true,
+    default: function () {
+      return this.budget;
+    },
+  },
   totalPayout: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });

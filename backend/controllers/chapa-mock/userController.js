@@ -1,8 +1,8 @@
 const User = require('../../models/User');
 const Transaction = require('../../models/Transaction');
+const PayoutTransaction = require('../../models/PayoutTransaction');
+const Campaign = require('../../models/Campaign');
 const axios = require('axios');
-
-
 const getBalance = async (req, res) => {
   const { userId } = req.params;
 
@@ -11,6 +11,7 @@ const getBalance = async (req, res) => {
     if (!user || user._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
+    console.log(`Balance retrieved for user ${userId}: ${user.balance}`);
     res.json({ balance: user.balance });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -84,6 +85,8 @@ const deposit = async (req, res) => {
 
 const chapaCallback = async (req, res) => {
   const { userId } = req.params;
+  console.log(`Callback received for user ${userId} with body: ${JSON.stringify(req.body)}`);
+
   const { tx_ref, status } = req.body;
 
   console.log(`Chapa callback received for user ${userId} with tx_ref ${tx_ref} and status ${status}`);
@@ -95,7 +98,7 @@ const chapaCallback = async (req, res) => {
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
-    if (status !== 'success') {
+    if (!status || status !== 'success') {
       console.log(`Payment status is not success: ${status || 'undefined'}`);
       await Transaction.findOneAndUpdate({ tx_ref }, { status: 'failed', updatedAt: Date.now() });
       return res.status(400).json({ message: 'Payment failed or pending' });
@@ -122,10 +125,10 @@ const chapaCallback = async (req, res) => {
       }
 
       const amount = parseFloat(response.data.data.amount);
+      console.log(`Current balance: ${user.balance}, Adding amount: ${amount}`);
       user.balance = (user.balance || 0) + amount;
-      console.log(`Updating user balance: ${user.balance - amount} + ${amount} = ${user.balance}`);
-      await user.save();
-      console.log(`Balance saved, new balance: ${user.balance}`);
+      const savedUser = await user.save();
+      console.log(`Balance updated, new balance: ${savedUser.balance}`);
 
       await Transaction.findOneAndUpdate(
         { tx_ref },
@@ -133,7 +136,7 @@ const chapaCallback = async (req, res) => {
       );
       console.log(`Transaction updated to success for tx_ref ${tx_ref}`);
 
-      return res.status(200).json({ message: 'Deposit successful', balance: user.balance });
+      return res.status(200).json({ message: 'Deposit successful', balance: savedUser.balance });
     }
 
     console.log(`Payment verification failed: ${response.data.data ? response.data.data.status : 'No data'}`);
@@ -171,4 +174,37 @@ const withdraw = async (req, res) => {
   }
 };
 
-module.exports = { getBalance, deposit, chapaCallback, withdraw };
+// New endpoint to apply payouts to user balances (called by paymentController)
+const applyPayouts = async (req, res) => {
+  const { marketerId, amount } = req.body;
+
+  try {
+    if (!marketerId || !amount || amount <= 0) {
+      return res.status(400).json({ message: 'Marketer ID and valid amount are required' });
+    }
+
+    const marketer = await User.findById(marketerId);
+    if (!marketer || marketer.role !== 'marketer') {
+      return res.status(404).json({ message: 'Marketer not found' });
+    }
+
+    marketer.balance += amount;
+    const savedMarketer = await marketer.save();
+    console.log(`Applied payout of ${amount} Birr to marketer ${marketerId}. New balance: ${savedMarketer.balance}`);
+
+    const payoutTransaction = new PayoutTransaction({
+      marketerId: marketer._id,
+      amount: amount,
+      status: 'completed',
+      createdAt: new Date(),
+    });
+    await payoutTransaction.save();
+
+    res.json({ message: 'Payout applied successfully', balance: savedMarketer.balance });
+  } catch (error) {
+    console.error('Apply payout error:', error.message);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+module.exports = { getBalance, deposit, chapaCallback, withdraw, applyPayouts };

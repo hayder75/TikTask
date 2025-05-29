@@ -1,7 +1,7 @@
 const Campaign = require('../models/Campaign');
 const CampaignApplication = require('../models/CampaignApplication');
 const User = require('../models/User');
-const axios = require('axios');
+const PayoutTransaction = require('../models/PayoutTransaction');
 
 const calculateBudget = async (req, res) => {
   const { budget, allowedMarketers } = req.body;
@@ -47,63 +47,117 @@ const calculateBudget = async (req, res) => {
 };
 
 const processDailyPayouts = async () => {
-  console.log('Running daily payout cron job...');
+  console.log('Starting daily payout cron job...');
   try {
-    const campaigns = await Campaign.find({ status: 'active' });
+    console.log('Fetching campaigns with remaining budget...');
+    const campaigns = await Campaign.find({
+      $or: [
+        { status: 'active' },
+        { status: 'completed', remainingBudget: { $gt: 0 } }
+      ]
+    });
+    console.log(`Found ${campaigns.length} campaigns with remaining budget:`, campaigns.map(c => c._id));
+
     for (const campaign of campaigns) {
+      console.log(`Processing campaign ${campaign._id} (Budget: ${campaign.budget}, Allowed Marketers: ${campaign.allowedMarketers}, Status: ${campaign.status})`);
       const applications = await CampaignApplication.find({ campaignId: campaign._id, status: 'accepted' })
         .populate('marketerId', 'followerCount balance');
+      console.log(`Found ${applications.length} accepted applications for campaign ${campaign._id}`);
 
-      const totalViews = applications.reduce((sum, app) => sum + (app.submission?.statsSnapshot?.views || 0), 0);
+      const totalViews = applications.reduce((sum, app) => {
+        console.log(`Application ${app._id} stats: views=${app.submission?.statsSnapshot?.views || 0}, likes=${app.submission?.statsSnapshot?.likes || 0}`);
+        return sum + (app.submission?.statsSnapshot?.views || 0);
+      }, 0);
       const totalLikes = applications.reduce((sum, app) => sum + (app.submission?.statsSnapshot?.likes || 0), 0);
+      console.log(`Total Views: ${totalViews}, Total Likes: ${totalLikes}`);
       const totalDailyValue = (totalViews * 0.001) + (totalLikes * 0.05); // Baseline for small tier
+      console.log(`Calculated totalDailyValue: ${totalDailyValue}`);
 
-      if (totalDailyValue === 0) continue;
+      if (totalDailyValue === 0) {
+        console.log(`No payout calculated for campaign ${campaign._id} due to zero totalDailyValue`);
+        continue;
+      }
 
       let totalPayout = 0;
+      const seller = await User.findById(campaign.createdBy);
+      console.log(`Seller ${seller?._id} balance: ${seller?.balance}`);
+      if (!seller) {
+        console.log(`Seller not found for campaign ${campaign._id}`);
+        continue;
+      }
+
       for (const app of applications) {
-        if (!app.submission?.statsSnapshot?.isActive) continue;
+        console.log(`Processing application ${app._id} for marketer ${app.marketerId._id}`);
+        if (!app.submission?.statsSnapshot?.isActive) {
+          console.log(`Skipping ${app._id} due to inactive statsSnapshot`);
+          continue;
+        }
 
         const stats = app.submission?.statsSnapshot || { views: 0, likes: 0 };
-        const followerCount = app.marketerId.followerCount;
+        console.log(`Stats for ${app._id}: views=${stats.views}, likes=${stats.likes}`);
+        const followerCount = app.marketerId.followerCount || 0; // Default to 0 if undefined
+        console.log(`Follower count for ${app.marketerId._id}: ${followerCount}`);
         let rateView = 0.001, rateLike = 0.05;
         if (followerCount > 10000 && followerCount <= 50000) { rateView = 0.0015; rateLike = 0.075; }
         else if (followerCount > 50000) { rateView = 0.002; rateLike = 0.10; }
+        console.log(`Rates: rateView=${rateView}, rateLike=${rateLike}`);
 
         const dailyPayout = (stats.views * rateView) + (stats.likes * rateLike);
+        console.log(`Daily payout for ${app._id}: ${dailyPayout}`);
         const proportion = ((stats.views * rateView) + (stats.likes * rateLike)) / totalDailyValue;
+        console.log(`Proportion for ${app._id}: ${proportion}`);
         const payout = dailyPayout + (proportion * (campaign.budget / campaign.allowedMarketers - dailyPayout));
+        console.log(`Final payout for ${app._id}: ${payout}`);
 
-        // Apply payout to marketer balance via userController
-        await axios.post(
-          'http://localhost:3000/api/users/apply-payouts',
-          {
-            marketerId: app.marketerId._id,
-            amount: payout,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.ADMIN_JWT_TOKEN}`, // Use an admin token or secure this call
-            },
-          }
-        );
+        // Cap payout to available remainingBudget per marketer
+        const maxPayoutPerMarketer = campaign.remainingBudget / applications.length;
+        const adjustedPayout = Math.min(payout, maxPayoutPerMarketer);
+        if (adjustedPayout <= 0) {
+          console.log(`No payout for ${app._id} due to insufficient remaining budget`);
+          continue;
+        }
 
-        totalPayout += payout;
+        const marketer = await User.findById(app.marketerId._id);
+        console.log(`Marketer ${marketer?._id} found, role: ${marketer?.role}, current balance: ${marketer?.balance}`);
+        if (!marketer || marketer.role !== 'marketer') {
+          console.log(`Marketer ${app.marketerId._id} not found or invalid role`);
+          continue;
+        }
 
-        console.log(`Processed payout for marketer ${app.marketerId._id} on campaign ${campaign._id}: ${payout} Birr`);
+        marketer.balance += adjustedPayout;
+        const savedMarketer = await marketer.save();
+        console.log(`Applied payout of ${adjustedPayout} Birr to marketer ${marketer._id}. New balance: ${savedMarketer.balance}`);
+
+        const payoutTransaction = new PayoutTransaction({
+          marketerId: marketer._id,
+          amount: adjustedPayout,
+          status: 'completed',
+          createdAt: new Date(),
+          performanceFactor: proportion,
+          campaignBudget: campaign.budget
+        });
+        await payoutTransaction.save();
+        console.log(`Saved transaction for marketer ${marketer._id}`);
+
+        totalPayout += adjustedPayout;
+        console.log(`Processed payout for marketer ${marketer._id} on campaign ${campaign._id}: ${adjustedPayout} Birr`);
       }
 
-      // Update campaign budget and payout totals
-      campaign.remainingBudget -= totalPayout;
-      campaign.totalPayout += totalPayout;
-      await campaign.save();
-
-      if (campaign.totalPayout >= 0.9 * campaign.budget) {
-        console.log(`Warning: Campaign ${campaign.title} budget (90% of ${campaign.budget} Birr) is nearly exhausted.`);
-      }
-      if (campaign.totalPayout >= campaign.budget) {
-        campaign.status = 'completed';
+      if (totalPayout > 0) {
+        console.log(`Total payout for campaign ${campaign._id}: ${totalPayout}`);
+        // No deduction from seller balance, only update campaign budget
+        campaign.remainingBudget -= totalPayout;
+        campaign.totalPayout += totalPayout;
         await campaign.save();
+        console.log(`Updated campaign ${campaign._id} - Remaining Budget: ${campaign.remainingBudget}, Total Payout: ${campaign.totalPayout}`);
+
+        if (campaign.remainingBudget <= 0) {
+          campaign.status = 'completed';
+          await campaign.save();
+          console.log(`Campaign ${campaign._id} marked as completed due to exhausted budget`);
+        } else if (campaign.totalPayout >= 0.9 * campaign.budget) {
+          console.log(`Warning: Campaign ${campaign.title} budget (90% of ${campaign.budget} Birr) is nearly exhausted.`);
+        }
       }
     }
   } catch (error) {
@@ -147,4 +201,13 @@ const abortApplication = async (req, res) => {
   }
 };
 
-module.exports = { calculateBudget, processDailyPayouts, abortApplication };
+const triggerProcessDailyPayouts = async (req, res) => {
+  try {
+    await processDailyPayouts();
+    res.json({ message: 'Daily payouts processed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error processing payouts', error: error.message });
+  }
+};
+
+module.exports = { calculateBudget, processDailyPayouts, abortApplication, triggerProcessDailyPayouts };

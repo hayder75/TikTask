@@ -24,8 +24,58 @@ const getAvailableCampaigns = async (req, res) => {
   }
 };
 
+// const applyForCampaign = async (req, res) => {
+//   const { campaignId } = req.params;
+//   const errors = validationResult(req);
+//   if (!errors.isEmpty()) {
+//     return res.status(400).json({ errors: errors.array() });
+//   }
+
+//   try {
+//     const campaign = await Campaign.findById(campaignId);
+//     if (!campaign) {
+//       return res.status(404).json({ message: 'Campaign not found' });
+//     }
+//     if (campaign.status !== 'active') {
+//       return res.status(400).json({ message: 'Campaign is not active' });
+//     }
+//     if (req.user.followerCount < campaign.minFollowerCount) {
+//       return res.status(400).json({ message: 'Insufficient followers' });
+//     }
+//     if (req.user.connectionCoins <= 0) {
+//       return res.status(400).json({ message: 'Insufficient connection coins' });
+//     }
+
+//     const existingApplication = await CampaignApplication.findOne({
+//       campaignId,
+//       marketerId: req.user._id,
+//     });
+//     if (existingApplication) {
+//       return res.status(400).json({ message: 'Already applied' });
+//     }
+
+//     const user = await User.findById(req.user._id);
+//     user.connectionCoins -= 1;
+//     await user.save();
+
+//     const application = new CampaignApplication({
+//       campaignId,
+//       marketerId: req.user._id,
+//     });
+
+//     await application.save();
+//     res.status(201).json(application);
+//   } catch (error) {
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// };
+
+
+//test apply fro calculations 
+
 const applyForCampaign = async (req, res) => {
   const { campaignId } = req.params;
+  const { tiktokVideoLink, views, likes, comments } = req.body;
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -61,6 +111,16 @@ const applyForCampaign = async (req, res) => {
     const application = new CampaignApplication({
       campaignId,
       marketerId: req.user._id,
+      submission: {
+        tiktokVideoLink: tiktokVideoLink || '',
+        statsSnapshot: {
+          views: views || 0,
+          likes: likes || 0,
+          comments: comments || 0,
+          lastUpdated: new Date(),
+          isActive: true,
+        },
+      },
     });
 
     await application.save();
@@ -69,6 +129,7 @@ const applyForCampaign = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 const submitLink = async (req, res) => {
   const { applicationId } = req.params;

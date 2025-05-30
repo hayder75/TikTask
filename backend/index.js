@@ -14,7 +14,7 @@ const {
   privacyPolicy,
 } = require("./controllers/staticController");
 
-// Import models to register them
+require('./controllers/telegramBot'); 
 require("./models/User");
 require("./models/Campaign");
 require("./models/CampaignApplication");

@@ -3,6 +3,9 @@ const User = require("../models/User");
 const { validationResult } = require("express-validator");
 const CampaignApplication = require("../models/CampaignApplication");
 const Message = require("../models/Message");
+const { sendNotification } = require("./telegramBot");
+
+
 const createCampaign = async (req, res) => {
   const {
     title,
@@ -154,19 +157,28 @@ const shortlistMarketers = async (req, res) => {
 
     const acceptedApplications = await CampaignApplication.find({
       _id: { $in: applicationIds },
-    }).populate("marketerId", "name email followerCount");
+    }).populate("marketerId", "name email followerCount telegramChatId");
     
-    // Send notification to each marketer with campaign details
+    // Send notification to each marketer
     for (const app of acceptedApplications) {
+      const messageContent = `You've been shortlisted for the campaign "${campaign.title}"!\nDescription: ${campaign.description}\nVideo Link: ${campaign.videoLink}\nPlease download the video, post it on TikTok, and submit the posted link via the platform at /api/applications/${app._id}/submit-link.`;
+
+      // Save to in-app notifications
       const notification = new Message({
         campaignApplicationId: app._id,
         videoLink: campaign.videoLink,
         title: campaign.title,
         description: campaign.description,
       });
-
       await notification.save();
-      console.log(`Notification sent to marketer for application ${app._id}`);
+      console.log(`In-app notification sent to marketer for application ${app._id}`);
+
+      // Send Telegram notification if chatId exists
+      if (app.marketerId.telegramChatId) {
+        await sendNotification(app.marketerId.telegramChatId, messageContent);
+      } else {
+        console.log(`No Telegram chatId for marketer ${app.marketerId._id}. Skipping Telegram notification.`);
+      }
     }
 
     if (acceptedCount + applicationIds.length === campaign.allowedMarketers)
@@ -179,6 +191,8 @@ const shortlistMarketers = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 const getApplications = async (req, res) => {
   const { campaignId } = req.params;
 

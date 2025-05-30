@@ -207,4 +207,26 @@ const applyPayouts = async (req, res) => {
   }
 };
 
-module.exports = { getBalance, deposit, chapaCallback, withdraw, applyPayouts };
+const linkTelegram = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || user._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (user.telegramChatId) {
+      return res.status(400).json({ message: 'Telegram account already linked' });
+    }
+
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'CampaignNotifierBot';
+    const link = `https://t.me/${botUsername}?start=${userId}`;
+    res.json({ message: 'Please link your Telegram account', telegramLink: link });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+module.exports = { getBalance, deposit, chapaCallback, withdraw, applyPayouts , linkTelegram};

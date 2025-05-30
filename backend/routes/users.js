@@ -1,6 +1,6 @@
 const express = require('express');
 const { protect } = require('../utils/authMiddleware');
-const { getBalance, deposit, withdraw, chapaCallback, applyPayouts } = require('../controllers/chapa-mock/userController');
+const { getBalance, deposit, withdraw, chapaCallback, applyPayouts , linkTelegram} = require('../controllers/chapa-mock/userController');
 const { triggerProcessDailyPayouts } = require('../controllers/paymentController');
 const router = express.Router();
 
@@ -12,5 +12,5 @@ router.post('/:userId/chapa-callback', chapaCallback);
 router.post('/apply-payouts', applyPayouts);
 // New endpoint to trigger daily payouts
 router.post('/process-daily-payouts', triggerProcessDailyPayouts);
-
+router.get('/:userId/link-telegram', protect, linkTelegram);
 module.exports = router;

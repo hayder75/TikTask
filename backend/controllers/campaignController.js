@@ -1,7 +1,6 @@
 const Campaign = require("../models/Campaign");
 const User = require("../models/User");
 const { validationResult } = require("express-validator");
-const { calculateBudget } = require("../controllers/paymentController"); // Import calculateBudget
 const CampaignApplication = require("../models/CampaignApplication");
 
 const createCampaign = async (req, res) => {
@@ -28,9 +27,6 @@ const createCampaign = async (req, res) => {
     seller.balance -= budget;
     await seller.save();
 
-    // const { estimatedViews, estimatedLikes } = await calculateBudget({
-    //   body: { budget, allowedMarketers },
-    // });
     const campaign = new Campaign({
       title,
       description,
@@ -197,36 +193,6 @@ const getApplications = async (req, res) => {
   }
 };
 
-// const getAcceptedStats = async (req, res) => {
-//   const { campaignId } = req.params;
-
-//   try {
-//     const campaign = await Campaign.findById(campaignId);
-//     if (!campaign)
-//       return res.status(404).json({ message: "Campaign not found" });
-//     if (campaign.createdBy.toString() !== req.user._id.toString())
-//       return res.status(403).json({ message: "Not authorized" });
-
-//     const applications = await CampaignApplication.find({
-//       campaignId,
-//       status: "accepted",
-//     }).populate("marketerId", "name tiktokUsername");
-
-//     const stats = applications.map((app) => ({
-//       ...app.toObject(),
-//       mockStats: {
-//         likes: Math.floor(Math.random() * 1000),
-//         views: Math.floor(Math.random() * 10000),
-//         comments: Math.floor(Math.random() * 100),
-//       },
-//     }));
-
-//     res.json(stats);
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
-
 const getAcceptedStats = async (req, res) => {
   const { campaignId } = req.params;
 
@@ -255,7 +221,7 @@ const getAcceptedStats = async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 

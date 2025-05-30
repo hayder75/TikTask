@@ -26,6 +26,11 @@ const campaignApplicationSchema = new mongoose.Schema({
       isActive: { type: Boolean, default: true },
     },
   },
+  lastProcessedStats: {
+    views: { type: Number, default: 0 },
+    likes: { type: Number, default: 0 },
+    lastProcessedAt: Date,
+  },
   pendingPayout: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });

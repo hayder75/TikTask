@@ -95,6 +95,15 @@ const processDailyPayouts = async () => {
 
         const stats = app.submission?.statsSnapshot || { views: 0, likes: 0 };
         console.log(`Stats for ${app._id}: views=${stats.views}, likes=${stats.likes}`);
+
+        // Compare current stats with last processed stats
+        const lastStats = app.lastProcessedStats || { views: 0, likes: 0 };
+        console.log(`Last processed stats for ${app._id}: views=${lastStats.views}, likes=${lastStats.likes}`);
+        if (stats.views === lastStats.views && stats.likes === lastStats.likes) {
+          console.log(`Skipping payout for ${app._id} due to unchanged stats`);
+          continue;
+        }
+
         const followerCount = app.marketerId.followerCount || 0; // Default to 0 if undefined
         console.log(`Follower count for ${app.marketerId._id}: ${followerCount}`);
         let rateView = 0.001, rateLike = 0.05;
@@ -102,9 +111,14 @@ const processDailyPayouts = async () => {
         else if (followerCount > 50000) { rateView = 0.002; rateLike = 0.10; }
         console.log(`Rates: rateView=${rateView}, rateLike=${rateLike}`);
 
-        const dailyPayout = (stats.views * rateView) + (stats.likes * rateLike);
+        // Calculate payout based on the difference in stats
+        const deltaViews = stats.views - lastStats.views;
+        const deltaLikes = stats.likes - lastStats.likes;
+        console.log(`Delta for ${app._id}: views=${deltaViews}, likes=${deltaLikes}`);
+
+        const dailyPayout = (deltaViews * rateView) + (deltaLikes * rateLike);
         console.log(`Daily payout for ${app._id}: ${dailyPayout}`);
-        const proportion = ((stats.views * rateView) + (stats.likes * rateLike)) / totalDailyValue;
+        const proportion = ((deltaViews * rateView) + (deltaLikes * rateLike)) / totalDailyValue;
         console.log(`Proportion for ${app._id}: ${proportion}`);
         const payout = dailyPayout + (proportion * (campaign.budget / campaign.allowedMarketers - dailyPayout));
         console.log(`Final payout for ${app._id}: ${payout}`);
@@ -139,13 +153,21 @@ const processDailyPayouts = async () => {
         await payoutTransaction.save();
         console.log(`Saved transaction for marketer ${marketer._id}`);
 
+        // Update lastProcessedStats
+        app.lastProcessedStats = {
+          views: stats.views,
+          likes: stats.likes,
+          lastProcessedAt: new Date()
+        };
+        await app.save();
+        console.log(`Updated lastProcessedStats for ${app._id}`);
+
         totalPayout += adjustedPayout;
         console.log(`Processed payout for marketer ${marketer._id} on campaign ${campaign._id}: ${adjustedPayout} Birr`);
       }
 
       if (totalPayout > 0) {
         console.log(`Total payout for campaign ${campaign._id}: ${totalPayout}`);
-        // No deduction from seller balance, only update campaign budget
         campaign.remainingBudget -= totalPayout;
         campaign.totalPayout += totalPayout;
         await campaign.save();

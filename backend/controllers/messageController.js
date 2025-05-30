@@ -1,64 +1,48 @@
 const Message = require('../models/Message');
-const User = require('../models/User');
+const CampaignApplication = require('../models/CampaignApplication');
 
-const sendMessage = async (req, res) => {
-  const { recipientId, content, campaignId } = req.body;
+const sendNotification = async (req, res) => {
+  const { campaignApplicationId, videoLink, title, description } = req.body;
 
   try {
-    if (!recipientId || !content) {
-      return res.status(400).json({ message: 'recipientId and content are required' });
+    if (!campaignApplicationId || !videoLink || !title || !description) {
+      return res.status(400).json({ message: 'campaignApplicationId, videoLink, title, and description are required' });
     }
 
-    const recipient = await User.findById(recipientId);
-    if (!recipient) {
-      return res.status(404).json({ message: 'Recipient not found' });
+    const campaignApplication = await CampaignApplication.findById(campaignApplicationId);
+    if (!campaignApplication) {
+      return res.status(404).json({ message: 'Campaign application not found' });
+    }
+    if (campaignApplication.marketerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to send notification for this application' });
     }
 
-    const message = new Message({
-      senderId: req.user._id,
-      recipientId,
-      content,
-      campaignId,
+    const notification = new Message({
+      campaignApplicationId,
+      videoLink,
+      title,
+      description,
     });
 
-    await message.save();
-    res.status(201).json({ message: 'Message sent successfully', messageId: message._id });
+    await notification.save();
+    res.status(201).json({ message: 'Notification sent successfully', notificationId: notification._id });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-const getMessages = async (req, res) => {
+const getNotifications = async (req, res) => {
   try {
-    const messages = await Message.find({ recipientId: req.user._id })
-      .populate('senderId', 'name email')
-      .populate('campaignId', 'title description')
+    const applications = await CampaignApplication.find({ marketerId: req.user._id, status: 'accepted' });
+    const applicationIds = applications.map(app => app._id);
+
+    const notifications = await Message.find({ campaignApplicationId: { $in: applicationIds } })
       .sort({ createdAt: -1 });
 
-    res.json(messages);
+    res.json(notifications);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-const markMessageAsRead = async (req, res) => {
-  const { messageId } = req.params;
-
-  try {
-    const message = await Message.findById(messageId);
-    if (!message) {
-      return res.status(404).json({ message: 'Message not found' });
-    }
-    if (message.recipientId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    message.read = true;
-    await message.save();
-    res.json({ message: 'Message marked as read' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-module.exports = { sendMessage, getMessages, markMessageAsRead };
+module.exports = { sendNotification, getNotifications };

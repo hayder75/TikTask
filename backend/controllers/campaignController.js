@@ -2,7 +2,7 @@ const Campaign = require("../models/Campaign");
 const User = require("../models/User");
 const { validationResult } = require("express-validator");
 const CampaignApplication = require("../models/CampaignApplication");
-
+const Message = require("../models/Message");
 const createCampaign = async (req, res) => {
   const {
     title,
@@ -156,27 +156,17 @@ const shortlistMarketers = async (req, res) => {
       _id: { $in: applicationIds },
     }).populate("marketerId", "name email followerCount");
     
-    // Send notification to each marketer
+    // Send notification to each marketer with campaign details
     for (const app of acceptedApplications) {
-      const messageContent = `You have been shortlisted for the campaign "${campaign.title}". Please post the following TikTok video link: ${campaign.videoLink}. After posting, submit the link via the /api/applications/${app._id}/submit-link endpoint.`;
-      const response = await fetch('http://localhost:3000/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${req.headers.authorization.split(' ')[1]}` // Pass the seller's token
-        },
-        body: JSON.stringify({
-          recipientId: app.marketerId._id,
-          content: messageContent,
-          campaignId: campaign._id,
-        }),
+      const notification = new Message({
+        campaignApplicationId: app._id,
+        videoLink: campaign.videoLink,
+        title: campaign.title,
+        description: campaign.description,
       });
 
-      if (!response.ok) {
-        console.error(`Failed to send message to ${app.marketerId.name} (${app.marketerId._id})`);
-      } else {
-        console.log(`Message sent to ${app.marketerId.name} (${app.marketerId._id})`);
-      }
+      await notification.save();
+      console.log(`Notification sent to marketer for application ${app._id}`);
     }
 
     if (acceptedCount + applicationIds.length === campaign.allowedMarketers)
@@ -189,7 +179,6 @@ const shortlistMarketers = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 const getApplications = async (req, res) => {
   const { campaignId } = req.params;
 

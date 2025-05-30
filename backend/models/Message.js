@@ -1,28 +1,22 @@
 const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema({
-  senderId: {
+  campaignApplicationId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "CampaignApplication",
     required: true,
   },
-  recipientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  content: {
+  videoLink: {
     type: String,
     required: true,
   },
-  campaignId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Campaign",
-    required: false,
+  title: {
+    type: String,
+    required: true,
   },
-  read: {
-    type: Boolean,
-    default: false,
+  description: {
+    type: String,
+    required: true,
   },
   createdAt: {
     type: Date,

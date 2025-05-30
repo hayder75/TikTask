@@ -155,11 +155,29 @@ const shortlistMarketers = async (req, res) => {
     const acceptedApplications = await CampaignApplication.find({
       _id: { $in: applicationIds },
     }).populate("marketerId", "name email followerCount");
-    acceptedApplications.forEach((app) => {
-      console.log(
-        `Sending video link to ${app.marketerId.name} at ${app.marketerId.email}: ${campaign.videoLink}`
-      );
-    });
+    
+    // Send notification to each marketer
+    for (const app of acceptedApplications) {
+      const messageContent = `You have been shortlisted for the campaign "${campaign.title}". Please post the following TikTok video link: ${campaign.videoLink}. After posting, submit the link via the /api/applications/${app._id}/submit-link endpoint.`;
+      const response = await fetch('http://localhost:3000/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${req.headers.authorization.split(' ')[1]}` // Pass the seller's token
+        },
+        body: JSON.stringify({
+          recipientId: app.marketerId._id,
+          content: messageContent,
+          campaignId: campaign._id,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to send message to ${app.marketerId.name} (${app.marketerId._id})`);
+      } else {
+        console.log(`Message sent to ${app.marketerId.name} (${app.marketerId._id})`);
+      }
+    }
 
     if (acceptedCount + applicationIds.length === campaign.allowedMarketers)
       campaign.status = "completed";

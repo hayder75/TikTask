@@ -8,6 +8,7 @@ const applicationRoutes = require("./routes/applications");
 const categoryRoutes = require("./routes/categories");
 const tiktokRoutes = require('./controllers/tiktokController'); 
 const userRoutes = require("./routes/users");
+const messageRoutes = require('./routes/messageRoutes'); 
 const {
   termsOfService,
   privacyPolicy,
@@ -37,6 +38,7 @@ app.use('/api/payments', paymentRoutes);
 app.get("/terms", termsOfService);
 app.get("/privacy", privacyPolicy);
 app.use('/api/users', userRoutes);
+app.use('/api/messages', messageRoutes); // Mount message routes
 app.use('/api/tiktok', tiktokRoutes);
 // Fallback route for unmatched paths (e.g., /dashboard)
 app.get('*', (req, res) => {

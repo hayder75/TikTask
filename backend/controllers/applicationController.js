@@ -85,6 +85,11 @@ const submitLink = async (req, res) => {
       return res.status(400).json({ message: 'Only accepted applications can submit links' });
     }
 
+    // Check if a submission already exists
+    if (application.submission) {
+      return res.status(400).json({ message: 'Link already submitted for this application' });
+    }
+
     // Validate TikTok URL format
     const videoIdMatch = tiktokVideoLink.match(/\/video\/(\d+)/);
     if (!videoIdMatch) {

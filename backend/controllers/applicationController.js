@@ -2,7 +2,8 @@ const Campaign = require('../models/Campaign');
 const CampaignApplication = require('../models/CampaignApplication');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
-
+const PayoutTransaction = require('../models/PayoutTransaction');
+const tiktokController = require('./tiktokController');
 const getAvailableCampaigns = async (req, res) => {
   try {
     const query = { status: 'active' };
@@ -85,8 +86,8 @@ const submitLink = async (req, res) => {
       return res.status(400).json({ message: 'Only accepted applications can submit links' });
     }
 
-    // Check if a submission already exists
-    if (application.submission) {
+    // Check if a tiktokVideoLink is already submitted
+    if (application.submission?.tiktokVideoLink) {
       return res.status(400).json({ message: 'Link already submitted for this application' });
     }
 
@@ -112,16 +113,17 @@ const submitLink = async (req, res) => {
         views,
         comments,
         lastUpdated,
-        isActive: true
-      }
+        isActive: true,
+      },
     };
     await application.save();
 
     res.json(application);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
+  };
+}
+
 
 const abortApplication = async (req, res) => {
   const { applicationId } = req.params;
@@ -158,4 +160,44 @@ const abortApplication = async (req, res) => {
   }
 };
 
-module.exports = { getAvailableCampaigns, applyForCampaign, submitLink, abortApplication };
+const getMarketerCampaigns = async (req, res) => {
+  try {
+    const applications = await CampaignApplication.find({
+      marketerId: req.user._id,
+      status: 'accepted',
+    }).populate('campaignId', 'title videoLink');
+
+    const campaignsWithStats = await Promise.all(applications.map(async (app) => {
+      const { likes, views, comments, lastUpdated, isActive } = app.submission?.statsSnapshot || {
+        likes: 0,
+        views: 0,
+        comments: 0,
+        lastUpdated: null,
+        isActive: false,
+      };
+
+      // Sum all payouts for this marketer and campaign
+      const payouts = await PayoutTransaction.find({
+        marketerId: req.user._id,
+        campaignId: app.campaignId._id,
+        status: 'completed', // Only count completed payouts
+      });
+
+      const totalEarnings = payouts.reduce((sum, payout) => sum + payout.amount, 0);
+
+      return {
+        campaignId: app.campaignId._id,
+        title: app.campaignId.title,
+        videoLink: app.campaignId.videoLink,
+        statsSnapshot: { likes, views, comments, lastUpdated, isActive },
+        earnings: totalEarnings,
+      };
+    }));
+
+    res.json(campaignsWithStats);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+module.exports = { getAvailableCampaigns, applyForCampaign, submitLink, abortApplication ,getMarketerCampaigns };

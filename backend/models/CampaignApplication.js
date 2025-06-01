@@ -23,7 +23,7 @@ const campaignApplicationSchema = new mongoose.Schema({
       views: Number,
       comments: Number,
       lastUpdated: Date,
-      isActive: { type: Boolean, default: true },
+      isActive: Boolean,
     },
   },
   lastProcessedStats: {

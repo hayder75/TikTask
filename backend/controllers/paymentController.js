@@ -146,9 +146,11 @@ const processDailyPayouts = async () => {
           marketerId: marketer._id,
           amount: adjustedPayout,
           status: 'completed',
-          createdAt: new Date(),
+          campaignId: campaign._id,
+          applicationId: app._id,
+          campaignBudget: campaign.budget,
           performanceFactor: proportion,
-          campaignBudget: campaign.budget
+          createdAt: new Date(),
         });
         await payoutTransaction.save();
         console.log(`Saved transaction for marketer ${marketer._id}`);

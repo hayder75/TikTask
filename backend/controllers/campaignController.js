@@ -18,6 +18,7 @@ const createCampaign = async (req, res) => {
   } = req.body;
 
   try {
+    console.log('req.user._id:', req.user._id);
     const seller = await User.findById(req.user._id);
     if (seller.balance < budget) {
       return res

@@ -19,6 +19,7 @@ const register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
     let tikTokData = null;
     if (role === 'marketer') {
       tikTokData = assignMockTikTokData(name);

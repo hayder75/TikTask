@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const User = require('../models/User');
 
 // Initialize the bot with your token
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 
 // Handle /start command to link the Telegram account
 bot.onText(/\/start (.+)/, async (msg, match) => {

@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const path = require('path');
 const authRoutes = require("./routes/auth");
 const paymentRoutes = require('./routes/payments');
 const campaignRoutes = require("./routes/campaigns");
@@ -41,8 +42,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes); // Mount message routes
 app.use('/api/tiktok', tiktokRoutes);
 // Fallback route for unmatched paths (e.g., /dashboard)
-app.get('*', (req, res) => {
-  res.sendFile('dashboard.html', { root: 'public' });
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 mongoose

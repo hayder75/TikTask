@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login } = require('../controllers/authController');
+const { register, login, tiktokAuth, tiktokCallback } = require('../controllers/authController');
 const { check } = require('express-validator');
 
 const router = express.Router();
@@ -19,9 +19,13 @@ router.post(
   '/login',
   [
     check('email', 'Valid email is required').isEmail(),
-    check('password', 'Passwordi is required').not().isEmpty(),
+    check('password', 'Password is required').not().isEmpty(),
   ],
   login
 );
+
+// TikTok authentication routes (under /api/auth)
+router.get('/tiktok', tiktokAuth);
+router.get('/callback', tiktokCallback);
 
 module.exports = router;

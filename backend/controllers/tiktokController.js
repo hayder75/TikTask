@@ -24,7 +24,7 @@ router.get('/stats', (req, res) => {
       views: stats.views,
       likes: stats.likes,
       comments: stats.comments,
-      lastUpdated: stats.lastUpdated
+      lastUpdated: stats.lastUpdatedq
     }
   });
 });
